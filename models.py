@@ -6,9 +6,18 @@ import numpy as np
 # He Initialization Function #
 # ========================== #
 
-def initialize_weights(m):
+def initialize_weights_normal(m, mode='fan_out', nonlinearity='relu'):
     if isinstance(m, nn.Conv1d) or isinstance(m, nn.Linear) or isinstance(m, nn.Conv2d):
-        nn.init.kaiming_normal_(m.weight, mode='fan_out', nonlinearity='relu')
+        nn.init.kaiming_normal_(m.weight, mode=mode, nonlinearity=nonlinearity)
+        if m.bias is not None:
+            nn.init.constant_(m.bias, 0)
+    elif (isinstance(m, nn.BatchNorm1d) or isinstance(m, nn.BatchNorm2d)) and m.affine:
+        nn.init.constant_(m.weight, 1)
+        nn.init.constant_(m.bias, 0)
+
+def initialize_weights_uniform(m, mode='fan_out', nonlinearity='relu'):
+    if isinstance(m, nn.Conv1d) or isinstance(m, nn.Linear) or isinstance(m, nn.Conv2d):
+        nn.init.kaiming_uniform_(m.weight, mode=mode, nonlinearity=nonlinearity)
         if m.bias is not None:
             nn.init.constant_(m.bias, 0)
     elif (isinstance(m, nn.BatchNorm1d) or isinstance(m, nn.BatchNorm2d)) and m.affine:
@@ -32,7 +41,8 @@ class ResidualStarter(nn.Module):
             raise ValueError("Input channels must be divisible by output channels")
         downsample = in_samples // out_samples
 
-        self._conv = nn.Conv1d(in_channels, out_channels, kernel_size, stride=downsample, padding=(kernel_size-1)//2, bias=False)
+        padding = (kernel_size - 1) // 2
+        self._conv = nn.Conv1d(in_channels, out_channels, kernel_size, stride=downsample, padding=padding, bias=False)
         self._bn = nn.BatchNorm1d(out_channels)
         self._activation = activation()
 
@@ -47,7 +57,7 @@ class ResidualStarter(nn.Module):
 # ================= #
 
 class ResidualLayer(nn.Module):
-    def __init__(self, in_samples, out_samples, in_channels, out_channels, kernel_size, *, dropout=-1, verbose=False, activation=None):
+    def __init__(self, in_samples, out_samples, in_channels, out_channels, kernel_size, *, dropout=0, verbose=False, activation=None):
         super(ResidualLayer, self).__init__()
         if verbose:
             print(f"Residual Unit: {in_samples} -> {out_samples} samples, {in_channels} -> {out_channels} channels, kernel size {kernel_size}")
@@ -66,7 +76,7 @@ class ResidualLayer(nn.Module):
         padding = (kernel_size - 1) // 2
 
         # Skip connection
-        self._skip_pooling = nn.MaxPool1d(downsample, stride=downsample) if downsample > 1 else nn.Identity()
+        self._skip_pooling = nn.AvgPool1d(downsample, stride=downsample) if downsample > 1 else nn.Identity()
         self._skip_conv = nn.Conv1d(in_channels, out_channels, kernel_size=1, stride=1) if in_channels != out_channels else nn.Identity()
 
         self._conv_1 = nn.Conv1d(in_channels, out_channels, kernel_size, padding=padding, stride=1, bias=False)
@@ -82,17 +92,16 @@ class ResidualLayer(nn.Module):
         self._bn_2 = nn.BatchNorm1d(out_channels)
         self._activation_2 = activation()
 
-        if dropout > 0:
-            self._dropout_layer = nn.Dropout(dropout)
-        else:
-            self._dropout_layer = nn.Identity()
+        self._dropout_layer = nn.Dropout(dropout)
 
     def forward(self, x, y):
         # Main line
         x = self._conv_1(x)
-        x = self._bn_1(self._activation_1(x))
+        x = self._bn_1(x)
+        x = self._activation_1(x)
         x = self._dropout_layer(x)
         x = self._conv_2(x)
+        x = self._bn_2(x)
 
         # Skip line
         y = self._skip_conv(y)
@@ -103,13 +112,13 @@ class ResidualLayer(nn.Module):
         x, y = added, added
 
         # Final batch norm and ReLU
-        x = self._bn_2(self._activation_2(x))
+        x = self._activation_2(x)
         x = self._dropout_layer(x)
 
         return x, y
 
 class ResidualBlock(nn.Module):
-    def __init__(self, in_samples, out_samples, in_channels, out_channels, kernel_size, num_layers, *, dropout=-1, verbose=False, activation=None):
+    def __init__(self, in_samples, out_samples, in_channels, out_channels, kernel_size, num_layers, *, dropout=0, verbose=False, activation=None):
         super(ResidualBlock, self).__init__()
         if verbose:
             print(f"Residual Block: {in_samples} -> {out_samples} samples, {in_channels} -> {out_channels} channels, kernel size {kernel_size}, {num_layers} layers:")
@@ -135,7 +144,7 @@ class ResidualBlock(nn.Module):
 # ===================== #
 
 class BottleNeckResidualLayer(nn.Module):
-    def __init__(self, in_samples, out_samples, in_channels, mid_channels, out_channels, kernel_size, *, dropout=-1, verbose=False, activation=None):
+    def __init__(self, in_samples, out_samples, in_channels, mid_channels, out_channels, kernel_size, *, dropout=0, verbose=False, activation=None):
         super(BottleNeckResidualLayer, self).__init__()
         if verbose:
             print(f"Bottle Neck Residual Unit: {in_samples} -> {out_samples} samples, {in_channels} -> {mid_channels} -> {out_channels} channels, kernel size {kernel_size}")
@@ -154,7 +163,7 @@ class BottleNeckResidualLayer(nn.Module):
         padding = (kernel_size - 1) // 2
 
         # Skip connection
-        self._skip_pooling = nn.MaxPool1d(downsample, stride=downsample) if downsample > 1 else nn.Identity()
+        self._skip_pooling = nn.AvgPool1d(downsample, stride=downsample) if downsample > 1 else nn.Identity()
         self._skip_conv = nn.Conv1d(in_channels, out_channels, kernel_size=1, stride=1) if in_channels != out_channels else nn.Identity()
 
         # First convolutional Layer
@@ -172,23 +181,23 @@ class BottleNeckResidualLayer(nn.Module):
         self._bn_3 = nn.BatchNorm1d(out_channels)
         self._activation_3 = activation()
 
-        if dropout > 0:
-            self._dropout_layer = nn.Dropout(dropout)
-        else:
-            self._dropout_layer = nn.Identity()
+        self._dropout_layer = nn.Dropout(dropout)
 
     def forward(self, x, y):
         # Main line
         # 1
         x = self._conv_1(x)
-        x = self._bn_1(self._activation_1(x))
+        x = self._bn_1(x)
+        x = self._activation_1(x)
         x = self._dropout_layer(x)
         # 2
         x = self._conv_2(x)
-        x = self._bn_2(self._activation_2(x))
+        x = self._bn_2(x)
+        x = self._activation_2(x)
         x = self._dropout_layer(x)
         # 3
         x = self._conv_3(x)
+        x = self._bn_3(x)
 
         # Skip line
         y = self._skip_conv(y)
@@ -199,13 +208,13 @@ class BottleNeckResidualLayer(nn.Module):
         x, y = added, added
 
         # Final batch norm and ReLU (preactivation)
-        x = self._bn_3(self._activation_3(x))
+        x = self._activation_3(x)
         x = self._dropout_layer(x)
 
         return x, y
 
 class BottleNeckResidualBlock(nn.Module):
-    def __init__(self, in_samples, out_samples, in_channels, mid_channels, out_channels, kernel_size, num_layers, *, dropout=-1, verbose=True, activation=None):
+    def __init__(self, in_samples, out_samples, in_channels, mid_channels, out_channels, kernel_size, num_layers, *, dropout=0, verbose=True, activation=None):
         super(BottleNeckResidualBlock, self).__init__()
         if verbose:
             print(f"Bottle Neck Residual Block: {in_samples} -> {out_samples} samples, {in_channels} -> {mid_channels} -> {out_channels} channels, kernel size {kernel_size}, {num_layers} layers:")
@@ -235,9 +244,10 @@ class ResNet(nn.Module):
                  starter_channels, starter_kernel,
                  blocks_channels_kernels_layers_list,
                  *,
+                 projection_head=0,
                  activation=None, verbose=False,
                  half_start=True,
-                 dropout=-1):
+                 dropout=0):
         super(ResNet, self).__init__()
 
         # Check the number of samples is appropriate
@@ -266,15 +276,26 @@ class ResNet(nn.Module):
             current_samples, current_channels = current_samples//2, channels
 
         # Build the ender
-        self.ender = nn.Sequential(
-                nn.AdaptiveAvgPool1d(1),
-                nn.Flatten(),
-            )
-
-        self.apply(initialize_weights)
+        if projection_head == 0:
+            self.ender = nn.Sequential(
+                    nn.AdaptiveAvgPool1d(1),
+                    nn.Flatten(),
+                )
+        else:
+            current_channels = blocks_channels_kernels_layers_list[-1][0]
+            proj_head = nn.ModuleList()
+            for i in range(projection_head):
+                proj_head.append(nn.Linear(current_channels, current_channels))
+                if i < projection_head - 1:
+                    proj_head.append(activation())
+            self.ender = nn.Sequential(
+                    nn.AdaptiveAvgPool1d(1),
+                    nn.Flatten(),
+                    *proj_head
+                )
 
         # Get useful parameters #
-        self.num_layers = sum([2*layers for _, _, layers in blocks_channels_kernels_layers_list]) + 1
+        self.num_layers = sum([2*layers for _, _, layers in blocks_channels_kernels_layers_list]) + 1 + projection_head
         # Note that the layer here contains two convolutions for each skip connection. This is why the number of layers is doubled
         # Also note that we don't have a FC layer at the end, so our convention is -1 compared to literature
         self.final_channels = blocks_channels_kernels_layers_list[-1][0]
@@ -297,9 +318,10 @@ class BottleNeckResNet(nn.Module):
                  starter_channels, starter_kernel,
                  blocks_midchannels_endchannels_kernels_layers_list,
                  *,
+                 projection_head=0,
                  activation=None, verbose=False,
                  half_start=True,
-                 dropout=-1):
+                 dropout=0):
         super(BottleNeckResNet, self).__init__()
 
         # Check the number of samples is appropriate
@@ -328,16 +350,27 @@ class BottleNeckResNet(nn.Module):
             current_samples, current_channels = current_samples//2, end_channels
 
         # Build the ender
-        self.ender = nn.Sequential(
-                nn.AdaptiveAvgPool1d(1),
-                nn.Flatten(),
-            )
-
-        self.apply(initialize_weights)
+        if projection_head == 0:
+            self.ender = nn.Sequential(
+                    nn.AdaptiveAvgPool1d(1),
+                    nn.Flatten(),
+                )
+        else:
+            current_channels = blocks_midchannels_endchannels_kernels_layers_list[-1][1]
+            proj_head = nn.ModuleList()
+            for i in range(projection_head):
+                proj_head.append(nn.Linear(current_channels, current_channels))
+                if i < projection_head - 1:
+                    proj_head.append(activation())
+            self.ender = nn.Sequential(
+                    nn.AdaptiveAvgPool1d(1),
+                    nn.Flatten(),
+                    *proj_head
+                )
 
         # Get useful parameters #
 
-        self.num_layers = sum([3*layers for _, _, _, layers in blocks_midchannels_endchannels_kernels_layers_list]) + 1
+        self.num_layers = sum([3*layers for _, _, _, layers in blocks_midchannels_endchannels_kernels_layers_list]) + 1 + projection_head
         # Note that the layer here contains two convolutions for each skip connection. This is why the number of layers is doubled
         # Also note that we don't have a FC layer at the end, so our convention is -1 compared to literature
         self.final_channels = blocks_midchannels_endchannels_kernels_layers_list[-1][1]
@@ -362,9 +395,10 @@ class ResNet17(ResNet):
                 in_samples,
                 in_channels=1, starter_channels=64, end_channels=160,
                 starter_kernel=15, mid_kernel=3, *,
+                projection_head=0,
                 activation=None, logchannels=True,
                 verbose=True, half_start=True,
-                dropout=-1):
+                dropout=0):
 
         if activation is None:
             activation = nn.ReLU
@@ -397,9 +431,10 @@ class ResNet33(ResNet):
                 in_samples,
                 in_channels=1, starter_channels=64, end_channels=160,
                 starter_kernel=15, mid_kernel=3, *,
+                projection_head=0,
                 activation=None, logchannels=True,
                 verbose=True, half_start=True,
-                dropout=-1):
+                dropout=0):
 
         if activation is None:
             activation = nn.ReLU
@@ -431,9 +466,10 @@ class ResNet49(BottleNeckResNet):
                 in_samples,
                 in_channels=1, starter_channels=64, end_channels=160,
                 starter_kernel=15, mid_kernel=3, *,
+                projection_head=0,
                 activation=None, logchannels=True,
                 verbose=True, half_start=True,
-                dropout=-1):
+                dropout=0):
 
         if activation is None:
             activation = nn.ReLU
@@ -465,9 +501,10 @@ class ResNet100(BottleNeckResNet):
                 in_samples,
                 in_channels=1, starter_channels=64, end_channels=160,
                 starter_kernel=15, mid_kernel=3, *,
+                projection_head=0,
                 activation=None, logchannels=True,
                 verbose=True, half_start=True,
-                dropout=-1):
+                dropout=0):
 
         if activation is None:
             activation = nn.ReLU
@@ -499,9 +536,10 @@ class ResNet151(BottleNeckResNet):
                 in_samples,
                 in_channels=1, starter_channels=64, end_channels=160,
                 starter_kernel=15, mid_kernel=3, *,
+                projection_head=0,
                 activation=None, logchannels=True,
                 verbose=True, half_start=True,
-                dropout=-1):
+                dropout=0):
 
         if activation is None:
             activation = nn.ReLU
