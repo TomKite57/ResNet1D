@@ -2,28 +2,6 @@ import torch
 import torch.nn as nn
 import numpy as np
 
-# ========================== #
-# He Initialization Function #
-# ========================== #
-
-def initialize_weights_normal(m, mode='fan_out', nonlinearity='relu'):
-    if isinstance(m, nn.Conv1d) or isinstance(m, nn.Linear) or isinstance(m, nn.Conv2d):
-        nn.init.kaiming_normal_(m.weight, mode=mode, nonlinearity=nonlinearity)
-        if m.bias is not None:
-            nn.init.constant_(m.bias, 0)
-    elif (isinstance(m, nn.BatchNorm1d) or isinstance(m, nn.BatchNorm2d)) and m.affine:
-        nn.init.constant_(m.weight, 1)
-        nn.init.constant_(m.bias, 0)
-
-def initialize_weights_uniform(m, mode='fan_out', nonlinearity='relu'):
-    if isinstance(m, nn.Conv1d) or isinstance(m, nn.Linear) or isinstance(m, nn.Conv2d):
-        nn.init.kaiming_uniform_(m.weight, mode=mode, nonlinearity=nonlinearity)
-        if m.bias is not None:
-            nn.init.constant_(m.bias, 0)
-    elif (isinstance(m, nn.BatchNorm1d) or isinstance(m, nn.BatchNorm2d)) and m.affine:
-        nn.init.constant_(m.weight, 1)
-        nn.init.constant_(m.bias, 0)
-
 # ====================== #
 # Fiducial Starter Layer #
 # ====================== #
@@ -390,7 +368,7 @@ class BottleNeckResNet(nn.Module):
 # Concrete Models #
 # =============== #
 
-class ResNet17(ResNet):
+class ResNet18(ResNet):
     def __init__(self,
                 in_samples,
                 in_channels=1, starter_channels=64, end_channels=160,
@@ -403,7 +381,7 @@ class ResNet17(ResNet):
         if activation is None:
             activation = nn.ReLU
 
-        self.save_str = f"ResNet17_{in_samples}_{in_channels}_{starter_channels}_{end_channels}_{starter_kernel}_{mid_kernel}_{activation.__name__}_{'log' if logchannels else 'lin'}_{'halved' if half_start else 'not-halved'}"
+        self.save_str = f"ResNet18_{in_samples}_{in_channels}_{starter_channels}_{end_channels}_{starter_kernel}_{mid_kernel}_{activation.__name__}_{'log' if logchannels else 'lin'}_{'halved' if half_start else 'not-halved'}"
 
         if logchannels:
             channels = np.round(np.geomspace(starter_channels, end_channels, 4, endpoint=True)).astype(int)
@@ -413,7 +391,7 @@ class ResNet17(ResNet):
         blocks_channels_kernels_layers_list = [(channels[0], mid_kernel, 2), (channels[1], mid_kernel, 2), (channels[2], mid_kernel, 2), (channels[3], mid_kernel, 2)]
 
 
-        super(ResNet17, self).__init__(
+        super(ResNet18, self).__init__(
             in_samples, in_channels,
             starter_channels, starter_kernel,
             blocks_channels_kernels_layers_list,
@@ -426,7 +404,7 @@ class ResNet17(ResNet):
     def get_save_string(self):
         return self.save_str
 
-class ResNet33(ResNet):
+class ResNet34(ResNet):
     def __init__(self,
                 in_samples,
                 in_channels=1, starter_channels=64, end_channels=160,
@@ -439,7 +417,7 @@ class ResNet33(ResNet):
         if activation is None:
             activation = nn.ReLU
 
-        self.save_str = f"ResNet33_{in_samples}_{in_channels}_{starter_channels}_{end_channels}_{starter_kernel}_{mid_kernel}_{activation.__name__}_{'log' if logchannels else 'lin'}_{'halved' if half_start else 'not-halved'}"
+        self.save_str = f"ResNet34_{in_samples}_{in_channels}_{starter_channels}_{end_channels}_{starter_kernel}_{mid_kernel}_{activation.__name__}_{'log' if logchannels else 'lin'}_{'halved' if half_start else 'not-halved'}"
 
         if logchannels:
             channels = np.round(np.geomspace(starter_channels, end_channels, 4, endpoint=True)).astype(int)
@@ -448,7 +426,7 @@ class ResNet33(ResNet):
 
         blocks_channels_kernels_layers_list = [(channels[0], mid_kernel, 3), (channels[1], mid_kernel, 4), (channels[2], mid_kernel, 6), (channels[3], mid_kernel, 3)]
 
-        super(ResNet33, self).__init__(
+        super(ResNet34, self).__init__(
             in_samples, in_channels,
             starter_channels, starter_kernel,
             blocks_channels_kernels_layers_list,
@@ -461,7 +439,7 @@ class ResNet33(ResNet):
     def get_save_string(self):
         return self.save_str
 
-class ResNet49(BottleNeckResNet):
+class ResNet50(BottleNeckResNet):
     def __init__(self,
                 in_samples,
                 in_channels=1, starter_channels=64, end_channels=160,
@@ -474,7 +452,7 @@ class ResNet49(BottleNeckResNet):
         if activation is None:
             activation = nn.ReLU
 
-        self.save_str = f"ResNet49_{in_samples}_{in_channels}_{starter_channels}_{end_channels}_{starter_kernel}_{mid_kernel}_{activation.__name__}_{'log' if logchannels else 'lin'}_{'halved' if half_start else 'not-halved'}"
+        self.save_str = f"ResNet50_{in_samples}_{in_channels}_{starter_channels}_{end_channels}_{starter_kernel}_{mid_kernel}_{activation.__name__}_{'log' if logchannels else 'lin'}_{'halved' if half_start else 'not-halved'}"
 
         if logchannels:
             channels = np.round(np.geomspace(starter_channels, end_channels, 4, endpoint=True)).astype(int)
@@ -483,7 +461,7 @@ class ResNet49(BottleNeckResNet):
 
         blocks_midchannels_endchannels_kernels_layers_list = [(channels[0]//4, channels[0], mid_kernel, 3), (channels[1]//4, channels[1], mid_kernel, 4), (channels[2]//4, channels[2], mid_kernel, 6), (channels[3]//4, channels[3], mid_kernel, 3)]
 
-        super(ResNet49, self).__init__(
+        super(ResNet50, self).__init__(
             in_samples, in_channels,
             starter_channels, starter_kernel,
             blocks_midchannels_endchannels_kernels_layers_list,
@@ -496,7 +474,7 @@ class ResNet49(BottleNeckResNet):
     def get_save_string(self):
         return self.save_str
 
-class ResNet100(BottleNeckResNet):
+class ResNet101(BottleNeckResNet):
     def __init__(self,
                 in_samples,
                 in_channels=1, starter_channels=64, end_channels=160,
@@ -509,7 +487,7 @@ class ResNet100(BottleNeckResNet):
         if activation is None:
             activation = nn.ReLU
 
-        self.save_str = f"ResNet100_{in_samples}_{in_channels}_{starter_channels}_{end_channels}_{starter_kernel}_{mid_kernel}_{activation.__name__}_{'log' if logchannels else 'lin'}_{'halved' if half_start else 'not-halved'}"
+        self.save_str = f"ResNet101_{in_samples}_{in_channels}_{starter_channels}_{end_channels}_{starter_kernel}_{mid_kernel}_{activation.__name__}_{'log' if logchannels else 'lin'}_{'halved' if half_start else 'not-halved'}"
 
         if logchannels:
             channels = np.round(np.geomspace(starter_channels, end_channels, 4, endpoint=True)).astype(int)
@@ -518,7 +496,7 @@ class ResNet100(BottleNeckResNet):
 
         blocks_midchannels_endchannels_kernels_layers_list = [(channels[0]//4, channels[0], mid_kernel, 3), (channels[1]//4, channels[1], mid_kernel, 4), (channels[2]//4, channels[2], mid_kernel, 23), (channels[3]//4, channels[3], mid_kernel, 3)]
 
-        super(ResNet100, self).__init__(
+        super(ResNet101, self).__init__(
             in_samples, in_channels,
             starter_channels, starter_kernel,
             blocks_midchannels_endchannels_kernels_layers_list,
@@ -531,7 +509,7 @@ class ResNet100(BottleNeckResNet):
     def get_save_string(self):
         return self.save_str
 
-class ResNet151(BottleNeckResNet):
+class ResNet152(BottleNeckResNet):
     def __init__(self,
                 in_samples,
                 in_channels=1, starter_channels=64, end_channels=160,
@@ -544,7 +522,7 @@ class ResNet151(BottleNeckResNet):
         if activation is None:
             activation = nn.ReLU
 
-        self.save_str = f"ResNet151_{in_samples}_{in_channels}_{starter_channels}_{end_channels}_{starter_kernel}_{mid_kernel}_{activation.__name__}_{'log' if logchannels else 'lin'}_{'halved' if half_start else 'not-halved'}"
+        self.save_str = f"ResNet152_{in_samples}_{in_channels}_{starter_channels}_{end_channels}_{starter_kernel}_{mid_kernel}_{activation.__name__}_{'log' if logchannels else 'lin'}_{'halved' if half_start else 'not-halved'}"
 
         if logchannels:
             channels = np.round(np.geomspace(starter_channels, end_channels, 4, endpoint=True)).astype(int)
@@ -553,7 +531,7 @@ class ResNet151(BottleNeckResNet):
 
         blocks_midchannels_endchannels_kernels_layers_list = [(channels[0]//4, channels[0], mid_kernel, 3), (channels[1]//4, channels[1], mid_kernel, 8), (channels[2]//4, channels[2], mid_kernel, 36), (channels[3]//4, channels[3], mid_kernel, 3)]
 
-        super(ResNet151, self).__init__(
+        super(ResNet152, self).__init__(
             in_samples, in_channels,
             starter_channels, starter_kernel,
             blocks_midchannels_endchannels_kernels_layers_list,
