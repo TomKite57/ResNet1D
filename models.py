@@ -371,7 +371,7 @@ class BottleNeckResNet(nn.Module):
 class ResNet18(ResNet):
     def __init__(self,
                 in_samples,
-                in_channels=1, starter_channels=64, end_channels=160,
+                in_channels=1, starter_channels=16, end_channels=128,
                 starter_kernel=15, mid_kernel=3, *,
                 projection_head=0,
                 activation=None, logchannels=True,
@@ -407,7 +407,7 @@ class ResNet18(ResNet):
 class ResNet34(ResNet):
     def __init__(self,
                 in_samples,
-                in_channels=1, starter_channels=64, end_channels=160,
+                in_channels=1, starter_channels=32, end_channels=256,
                 starter_kernel=15, mid_kernel=3, *,
                 projection_head=0,
                 activation=None, logchannels=True,
@@ -442,7 +442,7 @@ class ResNet34(ResNet):
 class ResNet50(BottleNeckResNet):
     def __init__(self,
                 in_samples,
-                in_channels=1, starter_channels=64, end_channels=160,
+                in_channels=1, starter_channels=32, end_channels=256,
                 starter_kernel=15, mid_kernel=3, *,
                 projection_head=0,
                 activation=None, logchannels=True,
@@ -477,7 +477,7 @@ class ResNet50(BottleNeckResNet):
 class ResNet101(BottleNeckResNet):
     def __init__(self,
                 in_samples,
-                in_channels=1, starter_channels=64, end_channels=160,
+                in_channels=1, starter_channels=32, end_channels=256,
                 starter_kernel=15, mid_kernel=3, *,
                 projection_head=0,
                 activation=None, logchannels=True,
@@ -512,7 +512,7 @@ class ResNet101(BottleNeckResNet):
 class ResNet152(BottleNeckResNet):
     def __init__(self,
                 in_samples,
-                in_channels=1, starter_channels=64, end_channels=160,
+                in_channels=1, starter_channels=64, end_channels=512,
                 starter_kernel=15, mid_kernel=3, *,
                 projection_head=0,
                 activation=None, logchannels=True,
